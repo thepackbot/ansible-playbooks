@@ -1,0 +1,49 @@
+---
+- hosts: test-router
+  gather_facts: no
+  connection: local
+
+  vars:
+    backup_dir: /tmp/backups/routers
+
+  vars_prompt:
+  - name: "user"
+    prompt: "Username"
+    private: no
+  - name: "pass"
+    prompt: "Password"
+
+  tasks:
+
+  - name: Define Provider
+    set_fact:
+      provider:
+        host: "{{ inventory_hostname }}"
+        username: "{{ user }}"
+        password: "{{ pass }}"
+
+  - name: Check backup folder exists
+    file:
+      path: "{{ backup_dir }}"
+      state: directory
+    run_once: yes
+
+  - name: Check device folder exists
+    file:
+      path: "{{ backup_dir }}/{{ inventory_hostname }}"
+      state: directory
+
+  - name: Gather running configs
+    ios_command:
+      commands: show running
+      provider: "{{ provider }}"
+      timeout: 30
+    register: config
+
+  - name: Get timestamp
+    command: date +%Y%m%d%H%M
+    register: timestamp
+
+  - copy:
+      content: "{{ config.stdout[0] }}"
+      dest: "{{ backup_dir }}/{{ inventory_hostname }}/running-config_{{ inventory_hostname }}_{{ timestamp.stdout }}"
